@@ -65,6 +65,7 @@ class GameScene extends Phaser.Scene {
         this.groundCollider = null; // <<<=== ADICIONADO: Para a colisão física invisível
         this.startTime = 0;
         this.sky = null;
+        this.backgroundMusic = null;
     }
 
     preload() {
@@ -72,6 +73,9 @@ class GameScene extends Phaser.Scene {
         this.load.image('ground', 'assets/placeholder_ground.png'); // <<<=== Precisamos saber a altura desta imagem
         this.load.image('capivara', 'assets/placeholder_capivara.png');
         this.load.image('obstacle_rock', 'assets/placeholder_rock.png');
+        this.load.audio('gameMusic', [
+            'assets/trilha_sonora.ogg'
+        ]);
     }
 
     create() {
@@ -146,6 +150,14 @@ class GameScene extends Phaser.Scene {
         // 6. Timers
         this.scheduleObstacleSpawn();
         this.scheduleDifficultyIncrease();
+
+        if (!this.backgroundMusic || !this.backgroundMusic.isPlaying) {
+            this.backgroundMusic = this.sound.add('gameMusic', {
+                loop: true,  // Tocar em loop
+                volume: 0.4  // Volume (0 a 1) - ajuste conforme necessário
+            });
+            this.backgroundMusic.play();
+       }
     }
 
     update(time, delta) {
@@ -291,6 +303,15 @@ class GameScene extends Phaser.Scene {
          restartButton.on('pointerover', () => restartButton.setBackgroundColor('#777'));
          restartButton.on('pointerout', () => restartButton.setBackgroundColor('#555'));
     }
+
+    shutdown() {
+        console.log("GameScene shutdown called.");
+        // Para a música quando a cena é parada ou reiniciada
+        if (this.backgroundMusic && this.backgroundMusic.isPlaying) {
+            this.backgroundMusic.stop();
+        }
+    }
+
 }
 
 // --- Configuração do Phaser ---
