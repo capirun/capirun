@@ -352,7 +352,7 @@ const config = {
         default: 'arcade',
         arcade: {
             gravity: { y: 1000 },
-            debug: true // Mude para true para ver o colisor do chão invisível
+            debug: false // Mude para true para ver o colisor do chão invisível
         }
     },
     scene: [StartScene, GameScene]
