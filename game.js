@@ -66,6 +66,8 @@ class GameScene extends Phaser.Scene {
         this.startTime = 0;
         this.sky = null;
         this.backgroundMusic = null;
+        this.pointerDownDetected = false;
+        this.pointerUpDetected = false;
     }
 
     preload() {
@@ -84,6 +86,8 @@ class GameScene extends Phaser.Scene {
         this.gameSpeed = 300;
         this.isCrouching = false;
         this.startTime = this.time.now;
+        this.pointerDownDetected = false;
+        this.pointerUpDetected = false;
 
         // --- Configuração ---
         const gameWidth = this.sys.game.config.width; // 800
@@ -177,6 +181,28 @@ class GameScene extends Phaser.Scene {
             });
             this.backgroundMusic.play();
        }
+
+        this.input.off('pointerdown', this.handlePointerDown, this);
+        this.input.off('pointerup', this.handlePointerUp, this);
+
+        // Adicionar os novos listeners
+        this.input.on('pointerdown', this.handlePointerDown, this);
+        this.input.on('pointerup', this.handlePointerUp, this);
+    }
+
+    handlePointerDown(pointer) {
+        if (!this.isGameOver) {
+            this.pointerDownDetected = true;
+        }
+    }
+
+    handlePointerUp(pointer) {
+        if (!this.isGameOver) {
+            console.log('Pointer Up Event Handled!'); // Debug
+            this.pointerUpDetected = true;
+        } else {
+            console.log('Pointer Up Ignored (Game Over)');
+        }
     }
 
     update(time, delta) {
@@ -207,13 +233,20 @@ class GameScene extends Phaser.Scene {
         const jumpKeyReleased = Phaser.Input.Keyboard.JustUp(this.cursors.space) || Phaser.Input.Keyboard.JustUp(this.cursors.up) || Phaser.Input.Keyboard.JustUp(this.keyW);
         const crouchKeyPressed = this.cursors.down.isDown || this.keyS.isDown;
 
+        const pointerPressedThisFrame = this.pointerDownDetected;
+        const pointerReleasedThisFrame = this.pointerUpDetected;
+
+        // Importante: Resetar as flags *depois* de lê-las neste frame
+        this.pointerDownDetected = false;
+        this.pointerUpDetected = false;
+
         // --- LÓGICA DO PULO VARIÁVEL ---
-        if (jumpKeyPressed && onGround) {
+        if ((jumpKeyPressed || pointerPressedThisFrame) && onGround) {
             this.capivara.setVelocityY(-500);
             this.isCrouching = false;
             this.capivara.setScale(2, 2);
         }
-        if (jumpKeyReleased && this.capivara.body.velocity.y < 0) {
+        if ((jumpKeyReleased || pointerReleasedThisFrame) && this.capivara.body.velocity.y < 0) {
             this.capivara.setVelocityY(this.capivara.body.velocity.y * 0.4);
         }
 
@@ -338,6 +371,10 @@ class GameScene extends Phaser.Scene {
         if (this.backgroundMusic && this.backgroundMusic.isPlaying) {
             this.backgroundMusic.stop();
         }
+
+        console.log("Removing pointer listeners.");
+        this.input.off('pointerdown', this.handlePointerDown, this);
+        this.input.off('pointerup', this.handlePointerUp, this);
     }
 
 }
