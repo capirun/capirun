@@ -135,7 +135,7 @@ class GameScene extends Phaser.Scene {
 
         // Calcula o offset para centralizar a nova hitbox (aproximadamente)
         // Offset X: Metade da diferença entre largura original e nova largura
-        const offsetX = (capWidth - bodyWidth) / 2;
+        const offsetX = (capWidth - bodyWidth) / 2 - 8;
         const offsetY = (capHeight - bodyHeight);
         this.capivara.body.setOffset(offsetX, offsetY);
         // Guardar os valores normais para usar ao levantar
@@ -274,7 +274,7 @@ class GameScene extends Phaser.Scene {
 
         // Ex: Deixar um pouco mais estreito e baixo
         const obsBodyWidth = obsWidth * 0.8;
-        const obsBodyHeight = obsHeight * 0.9;
+        const obsBodyHeight = obsHeight * 0.75;
         obstacle.body.setSize(obsBodyWidth, obsBodyHeight);
 
         // Centralizar a hitbox menor
@@ -352,7 +352,7 @@ const config = {
         default: 'arcade',
         arcade: {
             gravity: { y: 1000 },
-            debug: false // Mude para true para ver o colisor do chão invisível
+            debug: true // Mude para true para ver o colisor do chão invisível
         }
     },
     scene: [StartScene, GameScene]
