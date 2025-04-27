@@ -42,7 +42,6 @@ class StartScene extends Phaser.Scene {
         });
     }
 }
-
 // --- Cena Principal do Jogo ---
 class GameScene extends Phaser.Scene {
     constructor() {
@@ -56,21 +55,21 @@ class GameScene extends Phaser.Scene {
         this.obstacles = null;
         this.score = 0;
         this.scoreText = null;
-        this.gameSpeed = 300; // Velocidade inicial dos obstáculos (pixels por segundo)
+        this.gameSpeed = 300;
         this.gameSpeedIncreaseTimer = null;
         this.obstacleSpawnTimer = null;
         this.isCrouching = false;
         this.isGameOver = false;
-        this.ground = null;
+        // this.ground = null; // <<<=== REMOVIDO: Substituído por visual e físico
+        this.groundVisual = null; // <<<=== ADICIONADO: Para o TileSprite do chão
+        this.groundCollider = null; // <<<=== ADICIONADO: Para a colisão física invisível
         this.startTime = 0;
+        this.sky = null;
     }
 
     preload() {
-        // --- SUBSTITUIR POR IMAGENS REAIS ---
-        // Usando retângulos coloridos como placeholders
-        // Certifique-se que a pasta 'assets' existe e contém estas imagens!
         this.load.image('sky', 'assets/placeholder_sky.png');
-        this.load.image('ground', 'assets/placeholder_ground.png');
+        this.load.image('ground', 'assets/placeholder_ground.png'); // <<<=== Precisamos saber a altura desta imagem
         this.load.image('capivara', 'assets/placeholder_capivara.png');
         this.load.image('obstacle_rock', 'assets/placeholder_rock.png');
     }
@@ -82,22 +81,45 @@ class GameScene extends Phaser.Scene {
         this.isCrouching = false;
         this.startTime = this.time.now;
 
+        // --- Configuração ---
+        const gameWidth = this.sys.game.config.width; // 800
+        const gameHeight = this.sys.game.config.height; // 400
+
         // 1. Fundo e Chão
-        // Use config.width e config.height aqui se config estiver acessível
-        // Ou use os valores fixos 800 e 400 se preferir
-        this.add.image(400, 200, 'sky').setScrollFactor(0);
-        this.ground = this.physics.add.staticImage(400, 400 - 25, 'ground');
+        this.sky = this.add.tileSprite(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, 'sky');
+
+        // Assumindo que a imagem 'ground' tenha 50px de altura (AJUSTE SE NECESSÁRIO!)
+        const groundHeight = 50; // Altura da imagem do chão
+        this.groundVisual = this.add.tileSprite(
+            gameWidth / 2,                    // Centro X
+            gameHeight - (groundHeight / 2),  // Posição Y (metade da altura para cima a partir da base)
+            gameWidth,                        // Largura igual à do jogo
+            groundHeight,                     // Altura da imagem
+            'ground'
+        );
+
+        // Cria um corpo estático invisível para a colisão
+        // Um pouco abaixo da base do TileSprite para garantir contato
+        const colliderYOffset = 5; // Pequeno ajuste para garantir colisão
+        this.groundCollider = this.physics.add.staticImage(
+            gameWidth / 2,
+            gameHeight - (groundHeight / 2) + colliderYOffset
+        );
+        // Redimensiona o corpo físico para cobrir a largura e ter uma altura mínima
+        this.groundCollider.setSize(gameWidth, groundHeight - colliderYOffset); // Largura total, altura ajustada
+        this.groundCollider.setVisible(false); // Torna o colisor invisível
+        this.groundCollider.body.immovable = true; // Garante que é estático
 
         // 2. Capivara
-        this.capivara = this.physics.add.sprite(100, 400 - 100, 'capivara');
+        // Posiciona a capivara um pouco acima da linha do chão visual
+        const capivaraY = gameHeight - groundHeight - 50; // Ex: 50 pixels acima do chão
+        this.capivara = this.physics.add.sprite(100, capivaraY, 'capivara');
         this.capivara.setCollideWorldBounds(true);
         this.capivara.setBounce(0.1);
-        // Ajuste o tamanho do corpo físico se a imagem placeholder for muito diferente
-        // this.capivara.body.setSize(this.capivara.width * 0.8, this.capivara.height * 0.9);
-        this.capivara.setTint(0xffff00); // Placeholder amarelo
-        this.capivara.setScale(2, 2); // Garante tamanho normal ao pular
+        this.capivara.setTint(0xffff00);
+        this.capivara.setScale(2, 2);
 
-        this.physics.add.collider(this.capivara, this.ground);
+        this.physics.add.collider(this.capivara, this.groundCollider);
 
         // 3. Controles
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -110,6 +132,7 @@ class GameScene extends Phaser.Scene {
             immovable: true
         });
 
+        this.physics.add.collider(this.obstacles, this.groundCollider); // Para que pedras fiquem "no chão" se tivessem gravidade
         this.physics.add.collider(this.capivara, this.obstacles, this.gameOver, null, this);
 
         // 5. Pontuação
@@ -118,7 +141,7 @@ class GameScene extends Phaser.Scene {
             fill: '#fff',
             backgroundColor: 'rgba(0,0,0,0.5)',
             padding: { x: 5, y: 2 }
-        });
+        }).setScrollFactor(0);
 
         // 6. Timers
         this.scheduleObstacleSpawn();
@@ -130,71 +153,63 @@ class GameScene extends Phaser.Scene {
             return;
         }
 
+        // Converte delta de ms para segundos para cálculos de velocidade
+        const deltaSeconds = delta / 1000;
+
+        // Movimentar o fundo (céu)
+        const backgroundScrollSpeed = this.gameSpeed * 0.1; // Velocidade mais lenta
+        this.sky.tilePositionX += backgroundScrollSpeed * deltaSeconds;
+
+        // <<<=== ADICIONADO: Movimentar o chão visual
+        // O chão geralmente se move na mesma velocidade dos obstáculos
+        this.groundVisual.tilePositionX += this.gameSpeed * deltaSeconds;
+
         // Atualiza Pontuação
         this.score = Math.floor((time - this.startTime) / 1000);
         this.scoreText.setText('Tempo: ' + this.score);
 
         // Controle da Capivara
+        // <<<=== MODIFICADO: Verifica colisão com groundCollider
         const onGround = this.capivara.body.touching.down || this.capivara.body.blocked.down;
 
-        // Verifica o estado das teclas de pulo
         const jumpKeyPressed = Phaser.Input.Keyboard.JustDown(this.cursors.space) || Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.keyW);
         const jumpKeyReleased = Phaser.Input.Keyboard.JustUp(this.cursors.space) || Phaser.Input.Keyboard.JustUp(this.cursors.up) || Phaser.Input.Keyboard.JustUp(this.keyW);
-        // Não precisamos mais de jumpKeyDown (isDown) para esta lógica específica
-
         const crouchKeyPressed = this.cursors.down.isDown || this.keyS.isDown;
 
         // --- LÓGICA DO PULO VARIÁVEL ---
-
-        // 1. Iniciar o Pulo (com velocidade MÁXIMA potencial)
         if (jumpKeyPressed && onGround) {
-            // Use um valor maior aqui para a altura máxima do pulo (quando segura a tecla)
-            this.capivara.setVelocityY(-500); // Ex: -500 (ajuste conforme necessário)
+            this.capivara.setVelocityY(-500);
             this.isCrouching = false;
             this.capivara.setScale(2, 2);
-            // Pequeno ajuste para evitar ficar preso se estava agachado
-            if (this.capivara.scaleY !== 1) this.capivara.y -= this.capivara.displayHeight * 0.15 / 0.7;
-
         }
-
-        // 2. Cortar o Pulo se a tecla for solta cedo
-        // Verificamos se a tecla foi SOLTA (JustUp) E se a capivara AINDA ESTÁ SUBINDO (velocity.y < 0)
         if (jumpKeyReleased && this.capivara.body.velocity.y < 0) {
-            // Reduz a velocidade vertical atual. Multiplicar por um fator < 1 é comum.
-            // Quanto menor o fator, mais curto será o pulo mínimo (tapinha na tecla).
-            this.capivara.setVelocityY(this.capivara.body.velocity.y * 0.4); // Ex: Multiplica por 0.4 (ajuste!)
+            this.capivara.setVelocityY(this.capivara.body.velocity.y * 0.4);
         }
 
-        // Abaixar / Levantar
+        // --- LÓGICA DE AGACHAR ---
+        // (A lógica de agachar pode precisar de ajustes na posição Y se a origem/escala mudar muito)
         if (crouchKeyPressed && onGround && !this.isCrouching) {
-             // Só entra aqui se estiver no chão E NÃO estiver agachado ainda
             this.isCrouching = true;
-            this.capivara.setScale(2,2);
-            this.capivara.y += this.capivara.displayHeight * 0.15; // Ajuste baseado na esc
-
-             // Idealmente, ajustar o body.setSize aqui também para a hitbox diminuir
-             // this.capivara.body.setSize(this.capivara.width, this.capivara.height * 0.7).setOffset(0, ...);
-
+            const originalHeight = this.capivara.displayHeight;
+            this.capivara.setScale(2, 1.4);
+            const newHeight = this.capivara.displayHeight;
+            // Ajuste para manter a base no chão
+            this.capivara.y += (originalHeight - newHeight) / 2;
+             // this.capivara.body.setSize(...).setOffset(...); // Ajustar hitbox se necessário
         } else if (!crouchKeyPressed && this.isCrouching && onGround) {
-             // Só levanta se a tecla for solta E estava agachado E está no chão
-            this.isCrouching = false;
-            this.capivara.y -= this.capivara.displayHeight * 0.15 / 0.7; // Reverte o ajuste Y
-            this.capivara.setScale(2, 2);
-             // Reajustar o body.setSize para o normal
-             // this.capivara.body.setSize(this.capivara.width, this.capivara.height);
+             this.isCrouching = false;
+             const originalHeight = this.capivara.displayHeight; // Altura agachada
+             this.capivara.setScale(2, 2);
+             const newHeight = this.capivara.displayHeight;
+             // Ajuste para manter a base no chão
+             this.capivara.y -= (newHeight - originalHeight) / 2;
+             // this.capivara.body.setSize(...); // Restaurar hitbox se necessário
         }
-
-        // Cor padrão no chão
-        if(onGround && !this.isCrouching && !jumpKeyPressed && this.capivara.body.velocity.y == 0) {
-             // Se está no chão, não está agachado, não acabou de pular E não está caindo
-             this.capivara.setTint(0xffff00); // Amarelo
-        }
-
 
         // Movimentação e Remoção de Obstáculos
         this.obstacles.children.iterate(obstacle => {
             if (obstacle) {
-                obstacle.setVelocityX(-this.gameSpeed);
+                obstacle.body.velocity.x = -this.gameSpeed;
                 if (obstacle.getBounds().right < 0) {
                     obstacle.destroy();
                 }
@@ -202,9 +217,10 @@ class GameScene extends Phaser.Scene {
         });
     }
 
+    // --- Funções de Spawn e Dificuldade ---
+
     scheduleObstacleSpawn() {
         if (this.isGameOver) return;
-        // Garante que a velocidade mínima não deixe o delay negativo ou zero
         const speedFactor = Math.max(0.1, this.gameSpeed / 300);
         const delay = Phaser.Math.Between(1200, 2800) / speedFactor;
         this.obstacleSpawnTimer = this.time.delayedCall(delay, this.spawnObstacle, [], this);
@@ -213,19 +229,22 @@ class GameScene extends Phaser.Scene {
     spawnObstacle() {
         if (this.isGameOver) return;
 
-        const spawnX = 800 + 50; // Usa valor fixo da largura
-        // Usa valor fixo da altura
-        const spawnY = 400 - 25 - (30 / 2); // Altura do chão - (altura estimada da pedra / 2)
+        const gameWidth = this.sys.game.config.width;
+        const gameHeight = this.sys.game.config.height;
+        const groundImageHeight = 50; // <<<=== Use a mesma altura da imagem do chão definida em create
 
-        // Adiciona o obstáculo ao grupo
+        const spawnX = gameWidth + 50;
+        // <<<=== MODIFICADO: Posiciona o obstáculo na altura do chão VISUAL
+        // Assumindo que a origem do obstáculo é 0.5, 0.5 (centro)
+        // (Use a altura da imagem do obstáculo se souber, aqui 30 como placeholder)
+        const obstacleHeight = 30;
+        const spawnY = gameHeight - groundImageHeight - (obstacleHeight / 2) + 5; // 5 = pequeno ajuste para parecer em cima do chão
+
         const obstacle = this.obstacles.create(spawnX, spawnY, 'obstacle_rock');
-        // Ajuste o tamanho do corpo se necessário
-        // obstacle.body.setSize(obstacle.width * 0.8, obstacle.height * 0.9);
-
-        // Precisamos definir a velocidade aqui também, pois o update só afeta os já existentes
+        // obstacle.body.setSize(...); // Ajustar hitbox se necessário
         obstacle.setVelocityX(-this.gameSpeed);
 
-        this.scheduleObstacleSpawn(); // Reagenda o próximo
+        this.scheduleObstacleSpawn();
     }
 
     scheduleDifficultyIncrease() {
@@ -236,6 +255,7 @@ class GameScene extends Phaser.Scene {
         }, [], this);
     }
 
+    // --- Game Over ---
     gameOver(capivara, obstacle) {
         if (this.isGameOver) return;
 
@@ -243,24 +263,29 @@ class GameScene extends Phaser.Scene {
         this.isGameOver = true;
         this.physics.pause();
 
-        if (this.obstacleSpawnTimer) this.obstacleSpawnTimer.remove(false); // Usa remove(false) para não disparar se estiver pendente
+        // Parar timers
+        if (this.obstacleSpawnTimer) this.obstacleSpawnTimer.remove(false);
         if (this.gameSpeedIncreaseTimer) this.gameSpeedIncreaseTimer.remove(false);
 
         this.capivara.setTint(0xff0000);
 
-        this.add.text(400, 200 - 30, 'GAME OVER', {
+        // Textos e Botão de Game Over (adicionado setScrollFactor(0))
+        const gameWidth = this.sys.game.config.width;
+        const gameHeight = this.sys.game.config.height;
+        this.add.text(gameWidth/2, gameHeight/2 - 30, 'GAME OVER', {
             fontSize: '48px', fill: '#ff0000', fontStyle: 'bold'
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setScrollFactor(0);
 
-        const restartButton = this.add.text(400, 200 + 30, 'Reiniciar', {
+        const restartButton = this.add.text(gameWidth/2, gameHeight/2 + 30, 'Reiniciar', {
              fontSize: '24px', fill: '#ffffff', backgroundColor: '#555', padding: { x: 10, y: 5 }
-        }).setOrigin(0.5).setInteractive();
+        }).setOrigin(0.5).setInteractive().setScrollFactor(0);
 
         restartButton.on('pointerdown', () => {
-            // Precisamos resetar as variáveis antes de reiniciar
-            this.gameSpeed = 300; // Reset velocidade
-            this.score = 0;      // Reset score
-            // Outras variáveis que precisam ser resetadas
+            this.gameSpeed = 300;
+            this.score = 0;
+            // Resetar tilePosition ao reiniciar (opcional, mas bom para consistência)
+            // this.sky.tilePositionX = 0;
+            // this.groundVisual.tilePositionX = 0;
             this.scene.restart();
         });
          restartButton.on('pointerover', () => restartButton.setBackgroundColor('#777'));
@@ -268,9 +293,7 @@ class GameScene extends Phaser.Scene {
     }
 }
 
-
 // --- Configuração do Phaser ---
-// Agora que as classes estão definidas, podemos usá-las aqui
 const config = {
     type: Phaser.AUTO,
     width: 800,
@@ -280,12 +303,11 @@ const config = {
         default: 'arcade',
         arcade: {
             gravity: { y: 1000 },
-            debug: false // Mude para true para ver hitboxes
+            debug: false // Mude para true para ver o colisor do chão invisível
         }
     },
-    scene: [StartScene, GameScene] // Agora isso funciona!
+    scene: [StartScene, GameScene]
 };
 
-// Cria a instância do jogo
 const game = new Phaser.Game(config);
 console.log("Phaser Game instance created.");
