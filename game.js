@@ -104,7 +104,7 @@ class GameScene extends Phaser.Scene {
 
         // Cria um corpo estático invisível para a colisão
         // Um pouco abaixo da base do TileSprite para garantir contato
-        const colliderYOffset = 5; // Pequeno ajuste para garantir colisão
+        const colliderYOffset = 0; // Pequeno ajuste para garantir colisão
         this.groundCollider = this.physics.add.staticImage(
             gameWidth / 2,
             gameHeight - (groundHeight / 2) + colliderYOffset
@@ -122,6 +122,25 @@ class GameScene extends Phaser.Scene {
         this.capivara.setBounce(0.1);
         this.capivara.setTint(0xffff00);
         this.capivara.setScale(2, 2);
+
+        // ajustar a hitbox
+        // Valores de exemplo - ajuste olhando o debug!
+        const capWidth = this.capivara.width;   // Largura atual (escalada)
+        const capHeight = this.capivara.height; // Altura atual (escalada)
+
+        // Reduz o tamanho (ex: 70% da largura, 80% da altura)
+        const bodyWidth = capWidth * 0.65;
+        const bodyHeight = capHeight * 0.8;
+        this.capivara.body.setSize(bodyWidth, bodyHeight);
+
+        // Calcula o offset para centralizar a nova hitbox (aproximadamente)
+        // Offset X: Metade da diferença entre largura original e nova largura
+        const offsetX = (capWidth - bodyWidth) / 2;
+        const offsetY = (capHeight - bodyHeight);
+        this.capivara.body.setOffset(offsetX, offsetY);
+        // Guardar os valores normais para usar ao levantar
+        this.capivara.setData('normalBodySize', { width: bodyWidth, height: bodyHeight });
+        this.capivara.setData('normalBodyOffset', { x: offsetX, y: offsetY });
 
         this.physics.add.collider(this.capivara, this.groundCollider);
 
@@ -246,14 +265,23 @@ class GameScene extends Phaser.Scene {
         const groundImageHeight = 50; // <<<=== Use a mesma altura da imagem do chão definida em create
 
         const spawnX = gameWidth + 50;
-        // <<<=== MODIFICADO: Posiciona o obstáculo na altura do chão VISUAL
-        // Assumindo que a origem do obstáculo é 0.5, 0.5 (centro)
-        // (Use a altura da imagem do obstáculo se souber, aqui 30 como placeholder)
         const obstacleHeight = 30;
         const spawnY = gameHeight - groundImageHeight - (obstacleHeight / 2) + 5; // 5 = pequeno ajuste para parecer em cima do chão
 
         const obstacle = this.obstacles.create(spawnX, spawnY, 'obstacle_rock');
-        // obstacle.body.setSize(...); // Ajustar hitbox se necessário
+        const obsWidth = obstacle.width;
+        const obsHeight = obstacle.height;
+
+        // Ex: Deixar um pouco mais estreito e baixo
+        const obsBodyWidth = obsWidth * 0.8;
+        const obsBodyHeight = obsHeight * 0.9;
+        obstacle.body.setSize(obsBodyWidth, obsBodyHeight);
+
+        // Centralizar a hitbox menor
+        const obsOffsetX = (obsWidth - obsBodyWidth) / 2;
+        const obsOffsetY = (obsHeight - obsBodyHeight) / 2; // Centraliza verticalmente
+        obstacle.body.setOffset(obsOffsetX, obsOffsetY);
+
         obstacle.setVelocityX(-this.gameSpeed);
 
         this.scheduleObstacleSpawn();
