@@ -345,18 +345,24 @@ class GameScene extends Phaser.Scene {
 // --- Configuração do Phaser ---
 const config = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 400,
     parent: 'phaser-game',
     physics: {
         default: 'arcade',
         arcade: {
             gravity: { y: 1000 },
-            debug: false // Mude para true para ver o colisor do chão invisível
+            debug: false // Mude para true para ver hitboxes
         }
+    },
+    scale: {
+        mode: Phaser.Scale.FIT, // Escala para caber na janela, mantendo a proporção
+        parent: 'phaser-game', // Garante que continue usando o div correto
+        autoCenter: Phaser.Scale.CENTER_BOTH, // Centraliza o canvas na janela
+        width: 800,  // <<<=== DEFINA A LARGURA LÓGICA AQUI
+        height: 400 // <<<=== DEFINA A ALTURA LÓGICA AQUI
     },
     scene: [StartScene, GameScene]
 };
+
 
 const game = new Phaser.Game(config);
 console.log("Phaser Game instance created.");
