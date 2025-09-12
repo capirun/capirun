@@ -74,7 +74,8 @@ class GameScene extends Phaser.Scene {
     preload() {
         this.load.image('sky', 'assets/placeholder_sky.png');
         this.load.image('ground', 'assets/placeholder_ground.png'); // <<<=== Precisamos saber a altura desta imagem
-        this.load.image('capivara', 'assets/placeholder_capivara.png');
+        this.load.image('capi_moving_1', 'assets/capi_moving_1.png');
+        this.load.image('capi_moving_2', 'assets/capi_moving_2.png');
         this.load.image('obstacle_rock', 'assets/placeholder_rock.png');
         this.load.audio('gameMusic1', [
             'assets/trilha_sonora.ogg'
@@ -123,9 +124,19 @@ class GameScene extends Phaser.Scene {
         this.groundCollider.body.immovable = true; // Garante que é estático
 
         // 2. Capivara
+        this.anims.create({
+                key: 'capivara_run',
+                frames: [
+                    { key: 'capi_moving_1' },
+                    { key: 'capi_moving_2' }
+                ],
+                frameRate: 6, // 6 frames por segundo (ajuste para mais rápido/lento)
+                repeat: -1    // Loop infinito
+        });
+
         // Posiciona a capivara um pouco acima da linha do chão visual
         const capivaraY = gameHeight - groundHeight - 50; // Ex: 50 pixels acima do chão
-        this.capivara = this.physics.add.sprite(100, capivaraY, 'capivara');
+        this.capivara = this.physics.add.sprite(100, capivaraY, 'capi_moving_1');
         this.capivara.setCollideWorldBounds(true);
         this.capivara.setBounce(0.1);
         this.capivara.setTint(0xffff00);
@@ -151,6 +162,8 @@ class GameScene extends Phaser.Scene {
         this.capivara.setData('normalBodyOffset', { x: offsetX, y: offsetY });
 
         this.physics.add.collider(this.capivara, this.groundCollider);
+
+        this.capivara.play('capivara_run');
 
         // 3. Controles
         this.cursors = this.input.keyboard.createCursorKeys();
