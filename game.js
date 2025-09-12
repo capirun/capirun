@@ -373,7 +373,7 @@ class GameScene extends Phaser.Scene {
         // Textos e Botão de Game Over (adicionado setScrollFactor(0))
         const gameWidth = this.sys.game.config.width;
         const gameHeight = this.sys.game.config.height;
-        this.add.text(gameWidth/2, gameHeight/2 - 30, 'GAME OVER', {
+        this.add.text(gameWidth/2, gameHeight/2 - 30, 'BATEU AS BOTAS', {
             fontSize: '48px', fill: '#ff0000', fontStyle: 'bold'
         }).setOrigin(0.5).setScrollFactor(0);
 
@@ -391,6 +391,13 @@ class GameScene extends Phaser.Scene {
         });
          restartButton.on('pointerover', () => restartButton.setBackgroundColor('#777'));
          restartButton.on('pointerout', () => restartButton.setBackgroundColor('#555'));
+
+         this.input.keyboard.once('keydown-SPACE', () => {
+        this.scene.restart();
+        });
+        this.input.keyboard.once('keydown-UP', () => {
+            this.scene.restart();
+        });
     }
 
     shutdown() {
