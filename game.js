@@ -1,5 +1,5 @@
 // --- Cena Inicial ---
-const PHASE_PASS_SCORE = 5
+const PHASE_PASS_SCORE = 20
 
 class StartScene extends Phaser.Scene {
     constructor() {
@@ -95,8 +95,8 @@ class GameScene extends Phaser.Scene {
         this.load.audio('gameMusic2', [
             'assets/two_steps_from_hell.ogg'
         ]);
-        this.load.image('crocodile_closed_mouth', 'assets/crocodile_closed_mouth.png');
-        this.load.image('crocodile_open_mouth', 'assets/crocodile_open_mouth.png');
+        this.load.image('crocodile_closed_mouth', 'assets/crocodile_closed_mouth_192.png');
+        this.load.image('crocodile_open_mouth', 'assets/crocodile_open_mouth_192.png');
     }
 
     create() {
@@ -137,6 +137,10 @@ class GameScene extends Phaser.Scene {
         this.groundCollider.setVisible(false); // Torna o colisor invisível
         this.groundCollider.body.immovable = true; // Garante que é estático
 
+        if (this.backgroundMusic && this.backgroundMusic.isPlaying) {
+            this.backgroundMusic.stop();
+            this.backgroundMusic = null;
+        }
         // 2. Capivara
         this.anims.create({
                 key: 'capivara_run',
@@ -279,6 +283,28 @@ class GameScene extends Phaser.Scene {
                 this.obstacles.clear(true, true);
             }
 
+        if (this.phasePassed) {
+            // Capivara "nadando": abaixa mais
+            if (!this.capivara.getData('isSwimming')) {
+                this.capivara.y += 40; // Tente 40 ou 50 para alinhar melhor
+                this.capivara.setData('isSwimming', true);
+
+                // Ajusta o colisor do chão para ficar mais baixo e menor
+                this.groundCollider.y += 30; // Move o colisor para baixo
+                this.groundCollider.setSize(this.groundCollider.width, 20); // Diminui a altura do colisor
+            }
+        } else {
+            // Se voltar para a fase 1, retorna à posição normal
+            if (this.capivara.getData('isSwimming')) {
+                this.capivara.y -= 40;
+                this.capivara.setData('isSwimming', false);
+
+                // Restaura o colisor do chão
+                this.groundCollider.y -= 30;
+                this.groundCollider.setSize(this.groundCollider.width, 50); // Altura original do chão
+            }
+        }
+
         // Controle da Capivara
         // <<<=== MODIFICADO: Verifica colisão com groundCollider
         const onGround = this.capivara.body.touching.down || this.capivara.body.blocked.down;
@@ -324,15 +350,6 @@ class GameScene extends Phaser.Scene {
              // this.capivara.body.setSize(...); // Restaurar hitbox se necessário
         }
 
-        if (this.phasePassed) {
-            // Se encostar no chão, game over
-            if (this.capivara.body.touching.down && this.capivara.body.blocked.down) {
-                console.log('OIOOOOIOOII')
-                this.gameOver();
-                return;
-            }
-        }
-
         // Movimentação e Remoção de Obstáculos
         this.obstacles.children.iterate(obstacle => {
             if (obstacle) {
@@ -363,19 +380,19 @@ spawnObstacle() {
     if (this.phasePassed) {
         // Fase dos jacarés
         const crocodileHeight = 30;
-        const spawnY = gameHeight - groundImageHeight - (crocodileHeight / 2) + 5;
+        const spawnY = gameHeight - groundImageHeight - (crocodileHeight / 2) + 30;
 
         // Calcule a quantidade de jacarés visíveis
         const minDistance = 120; // Distância mínima entre jacarés
         const maxDistance = 200; // Distância máxima entre jacarés
         let lastX = gameWidth;
-        let numCrocodiles = Phaser.Math.Between(2, 3); // Sempre pelo menos 2 jacarés
+        let numCrocodiles = 1
 
         for (let i = 0; i < numCrocodiles; i++) {
             lastX += Phaser.Math.Between(minDistance, maxDistance);
             const crocodile = this.obstacles.create(lastX, spawnY, 'crocodile_closed_mouth');
             crocodile.play('crocodile_anim');
-            crocodile.body.setSize(crocodile.width * 0.8, crocodile.height * 0.7);
+            crocodile.body.setSize(crocodile.width * 0.4, crocodile.height * 0.7);
             crocodile.body.setOffset((crocodile.width - crocodile.width * 0.8) / 2, (crocodile.height - crocodile.height * 0.7) / 2);
             crocodile.setVelocityX(-this.gameSpeed);
         }
