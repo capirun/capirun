@@ -68,7 +68,7 @@ class GameScene extends Phaser.Scene {
         this.backgroundMusic = null;
         this.pointerDownDetected = false;
         this.pointerUpDetected = false;
-        this.musicSwitched = false;
+        this.phasePassed = false;
     }
 
     preload() {
@@ -242,7 +242,7 @@ class GameScene extends Phaser.Scene {
         this.score = Math.floor((time - this.startTime) / 1000);
         this.scoreText.setText('Tempo: ' + this.score);
 
-        if (this.score > 25 && !this.musicSwitched) {
+        if (this.score > 25 && !this.phasePassed) {
                 this.backgroundMusic.stop();
                 this.backgroundMusic = null;
                 this.backgroundMusic = this.sound.add('gameMusic2', {
@@ -250,7 +250,7 @@ class GameScene extends Phaser.Scene {
                     volume: 0.4
                 });
                 this.backgroundMusic.play();
-                this.musicSwitched = true; // Marca que já trocou
+                this.phasePassed = true; // Marca que já trocou
             }
 
         // Controle da Capivara
@@ -351,7 +351,7 @@ class GameScene extends Phaser.Scene {
     scheduleDifficultyIncrease() {
         if (this.isGameOver) return;
         this.gameSpeedIncreaseTimer = this.time.delayedCall(1000, () => {
-            this.gameSpeed += 10;
+            this.gameSpeed += 5;
             this.scheduleDifficultyIncrease();
         }, [], this);
     }
