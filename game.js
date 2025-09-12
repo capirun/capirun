@@ -1,8 +1,11 @@
 // --- Cena Inicial ---
+const PHASE_PASS_SCORE = 5
+
 class StartScene extends Phaser.Scene {
     constructor() {
         super({ key: 'StartScene' });
     }
+
 
     preload() {
         // Pré-carregar assets da tela inicial (se houver)
@@ -11,6 +14,14 @@ class StartScene extends Phaser.Scene {
     }
 
     create() {
+        this.isGameOver = false;
+        this.score = 0;
+        this.gameSpeed = 300;
+        this.isCrouching = false;
+        this.startTime = this.time.now;
+        this.pointerDownDetected = false;
+        this.pointerUpDetected = false;
+        this.phasePassed = false; 
         console.log("StartScene create() called.");
         // Adiciona um fundo simples (cor)
         this.cameras.main.setBackgroundColor('#a0d4a1'); // Verde claro
@@ -84,6 +95,8 @@ class GameScene extends Phaser.Scene {
         this.load.audio('gameMusic2', [
             'assets/two_steps_from_hell.ogg'
         ]);
+        this.load.image('crocodile_closed_mouth', 'assets/crocodile_closed_mouth.png');
+        this.load.image('crocodile_open_mouth', 'assets/crocodile_open_mouth.png');
     }
 
     create() {
@@ -133,6 +146,16 @@ class GameScene extends Phaser.Scene {
                 ],
                 frameRate: 6, // 6 frames por segundo (ajuste para mais rápido/lento)
                 repeat: -1    // Loop infinito
+        });
+
+        this.anims.create({
+            key: 'crocodile_anim',
+            frames: [
+                { key: 'crocodile_closed_mouth' },
+                { key: 'crocodile_open_mouth' }
+            ],
+            frameRate: 2,
+            repeat: -1
         });
 
         // Posiciona a capivara um pouco acima da linha do chão visual
@@ -241,9 +264,9 @@ class GameScene extends Phaser.Scene {
 
         // Atualiza Pontuação
         this.score = Math.floor((time - this.startTime) / 1000);
-        this.scoreText.setText('Tempo: ' + this.score);
+        this.scoreText.setText('Pontuação: ' + this.score);
 
-        if (this.score > 5 && !this.phasePassed) {
+        if (this.score > PHASE_PASS_SCORE && !this.phasePassed) {
                 this.backgroundMusic.stop();
                 this.backgroundMusic = null;
                 this.backgroundMusic = this.sound.add('gameMusic2', {
@@ -253,6 +276,7 @@ class GameScene extends Phaser.Scene {
                 this.backgroundMusic.play();
                 this.groundVisual.setTexture('water');
                 this.phasePassed = true; // Marca que já trocou
+                this.obstacles.clear(true, true);
             }
 
         // Controle da Capivara
@@ -300,6 +324,15 @@ class GameScene extends Phaser.Scene {
              // this.capivara.body.setSize(...); // Restaurar hitbox se necessário
         }
 
+        if (this.phasePassed) {
+            // Se encostar no chão, game over
+            if (this.capivara.body.touching.down && this.capivara.body.blocked.down) {
+                console.log('OIOOOOIOOII')
+                this.gameOver();
+                return;
+            }
+        }
+
         // Movimentação e Remoção de Obstáculos
         this.obstacles.children.iterate(obstacle => {
             if (obstacle) {
@@ -320,35 +353,48 @@ class GameScene extends Phaser.Scene {
         this.obstacleSpawnTimer = this.time.delayedCall(delay, this.spawnObstacle, [], this);
     }
 
-    spawnObstacle() {
-        if (this.isGameOver) return;
+spawnObstacle() {
+    if (this.isGameOver) return;
 
-        const gameWidth = this.sys.game.config.width;
-        const gameHeight = this.sys.game.config.height;
-        const groundImageHeight = 50; // <<<=== Use a mesma altura da imagem do chão definida em create
+    const gameWidth = this.sys.game.config.width;
+    const gameHeight = this.sys.game.config.height;
+    const groundImageHeight = 50;
 
-        const spawnX = gameWidth + 50;
+    if (this.phasePassed) {
+        // Fase dos jacarés
+        const crocodileHeight = 30;
+        const spawnY = gameHeight - groundImageHeight - (crocodileHeight / 2) + 5;
+
+        // Calcule a quantidade de jacarés visíveis
+        const minDistance = 120; // Distância mínima entre jacarés
+        const maxDistance = 200; // Distância máxima entre jacarés
+        let lastX = gameWidth;
+        let numCrocodiles = Phaser.Math.Between(2, 3); // Sempre pelo menos 2 jacarés
+
+        for (let i = 0; i < numCrocodiles; i++) {
+            lastX += Phaser.Math.Between(minDistance, maxDistance);
+            const crocodile = this.obstacles.create(lastX, spawnY, 'crocodile_closed_mouth');
+            crocodile.play('crocodile_anim');
+            crocodile.body.setSize(crocodile.width * 0.8, crocodile.height * 0.7);
+            crocodile.body.setOffset((crocodile.width - crocodile.width * 0.8) / 2, (crocodile.height - crocodile.height * 0.7) / 2);
+            crocodile.setVelocityX(-this.gameSpeed);
+        }
+    } else {
+        // Fase das pedras (original)
         const obstacleHeight = 30;
-        const spawnY = gameHeight - groundImageHeight - (obstacleHeight / 2) + 5; // 5 = pequeno ajuste para parecer em cima do chão
-
-        const obstacle = this.obstacles.create(spawnX, spawnY, 'obstacle_rock');
+        const spawnY = gameHeight - groundImageHeight - (obstacleHeight / 2) + 5;
+        const obstacle = this.obstacles.create(gameWidth + 50, spawnY, 'obstacle_rock');
         const obsWidth = obstacle.width;
         const obsHeight = obstacle.height;
-
-        // Ex: Deixar um pouco mais estreito e baixo
         const obsBodyWidth = obsWidth * 0.8;
         const obsBodyHeight = obsHeight * 0.75;
         obstacle.body.setSize(obsBodyWidth, obsBodyHeight);
-
-        // Centralizar a hitbox menor
-        const obsOffsetX = (obsWidth - obsBodyWidth) / 2;
-        const obsOffsetY = (obsHeight - obsBodyHeight) / 2; // Centraliza verticalmente
-        obstacle.body.setOffset(obsOffsetX, obsOffsetY);
-
+        obstacle.body.setOffset((obsWidth - obsBodyWidth) / 2, (obsHeight - obsBodyHeight) / 2);
         obstacle.setVelocityX(-this.gameSpeed);
-
-        this.scheduleObstacleSpawn();
     }
+
+    this.scheduleObstacleSpawn();
+}
 
     scheduleDifficultyIncrease() {
         if (this.isGameOver) return;
@@ -360,6 +406,7 @@ class GameScene extends Phaser.Scene {
 
     // --- Game Over ---
     gameOver(capivara, obstacle) {
+        this.phasePassed = false;
         if (this.isGameOver) return;
 
         console.log('Game Over!');
