@@ -1,8 +1,11 @@
 // --- Cena Inicial ---
+const PHASE_PASS_SCORE = 20
+
 class StartScene extends Phaser.Scene {
     constructor() {
         super({ key: 'StartScene' });
     }
+
 
     preload() {
         // Pré-carregar assets da tela inicial (se houver)
@@ -11,12 +14,20 @@ class StartScene extends Phaser.Scene {
     }
 
     create() {
+        this.isGameOver = false;
+        this.score = 0;
+        this.gameSpeed = 300;
+        this.isCrouching = false;
+        this.startTime = this.time.now;
+        this.pointerDownDetected = false;
+        this.pointerUpDetected = false;
+        this.phasePassed = false; 
         console.log("StartScene create() called.");
         // Adiciona um fundo simples (cor)
         this.cameras.main.setBackgroundColor('#a0d4a1'); // Verde claro
 
         // Adiciona texto do título
-        this.add.text(400, 200 - 50, 'CapiRun', { // Usei valores fixos baseados no config
+        this.add.text(400, 200 - 50, 'CapiRun 2.0', { // Usei valores fixos baseados no config
             fontSize: '48px',
             fill: '#5c3e30', // Marrom
             fontStyle: 'bold'
@@ -68,13 +79,15 @@ class GameScene extends Phaser.Scene {
         this.backgroundMusic = null;
         this.pointerDownDetected = false;
         this.pointerUpDetected = false;
-        this.musicSwitched = false;
+        this.phasePassed = false;
     }
 
     preload() {
         this.load.image('sky', 'assets/placeholder_sky.png');
-        this.load.image('ground', 'assets/placeholder_ground.png'); // <<<=== Precisamos saber a altura desta imagem
-        this.load.image('capivara', 'assets/placeholder_capivara.png');
+        this.load.image('ground', 'assets/placeholder_ground.png');
+        this.load.image('water', 'assets/water.png');
+        this.load.image('capi_moving_1', 'assets/capi_moving_1.png');
+        this.load.image('capi_moving_2', 'assets/capi_moving_2.png');
         this.load.image('obstacle_rock', 'assets/placeholder_rock.png');
         this.load.audio('gameMusic1', [
             'assets/trilha_sonora.ogg'
@@ -82,6 +95,8 @@ class GameScene extends Phaser.Scene {
         this.load.audio('gameMusic2', [
             'assets/two_steps_from_hell.ogg'
         ]);
+        this.load.image('crocodile_closed_mouth', 'assets/crocodile_closed_mouth_192.png');
+        this.load.image('crocodile_open_mouth', 'assets/crocodile_open_mouth_192.png');
     }
 
     create() {
@@ -122,10 +137,34 @@ class GameScene extends Phaser.Scene {
         this.groundCollider.setVisible(false); // Torna o colisor invisível
         this.groundCollider.body.immovable = true; // Garante que é estático
 
+        if (this.backgroundMusic && this.backgroundMusic.isPlaying) {
+            this.backgroundMusic.stop();
+            this.backgroundMusic = null;
+        }
         // 2. Capivara
+        this.anims.create({
+                key: 'capivara_run',
+                frames: [
+                    { key: 'capi_moving_1' },
+                    { key: 'capi_moving_2' }
+                ],
+                frameRate: 6, // 6 frames por segundo (ajuste para mais rápido/lento)
+                repeat: -1    // Loop infinito
+        });
+
+        this.anims.create({
+            key: 'crocodile_anim',
+            frames: [
+                { key: 'crocodile_closed_mouth' },
+                { key: 'crocodile_open_mouth' }
+            ],
+            frameRate: 2,
+            repeat: -1
+        });
+
         // Posiciona a capivara um pouco acima da linha do chão visual
         const capivaraY = gameHeight - groundHeight - 50; // Ex: 50 pixels acima do chão
-        this.capivara = this.physics.add.sprite(100, capivaraY, 'capivara');
+        this.capivara = this.physics.add.sprite(100, capivaraY, 'capi_moving_1');
         this.capivara.setCollideWorldBounds(true);
         this.capivara.setBounce(0.1);
         this.capivara.setTint(0xffff00);
@@ -151,6 +190,8 @@ class GameScene extends Phaser.Scene {
         this.capivara.setData('normalBodyOffset', { x: offsetX, y: offsetY });
 
         this.physics.add.collider(this.capivara, this.groundCollider);
+
+        this.capivara.play('capivara_run');
 
         // 3. Controles
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -227,9 +268,9 @@ class GameScene extends Phaser.Scene {
 
         // Atualiza Pontuação
         this.score = Math.floor((time - this.startTime) / 1000);
-        this.scoreText.setText('Tempo: ' + this.score);
+        this.scoreText.setText('Pontuação: ' + this.score);
 
-        if (this.score > 25 && !this.musicSwitched) {
+        if (this.score > PHASE_PASS_SCORE && !this.phasePassed) {
                 this.backgroundMusic.stop();
                 this.backgroundMusic = null;
                 this.backgroundMusic = this.sound.add('gameMusic2', {
@@ -237,8 +278,32 @@ class GameScene extends Phaser.Scene {
                     volume: 0.4
                 });
                 this.backgroundMusic.play();
-                this.musicSwitched = true; // Marca que já trocou
+                this.groundVisual.setTexture('water');
+                this.phasePassed = true; // Marca que já trocou
+                this.obstacles.clear(true, true);
             }
+
+        if (this.phasePassed) {
+            // Capivara "nadando": abaixa mais
+            if (!this.capivara.getData('isSwimming')) {
+                this.capivara.y += 40; // Tente 40 ou 50 para alinhar melhor
+                this.capivara.setData('isSwimming', true);
+
+                // Ajusta o colisor do chão para ficar mais baixo e menor
+                this.groundCollider.y += 30; // Move o colisor para baixo
+                this.groundCollider.setSize(this.groundCollider.width, 20); // Diminui a altura do colisor
+            }
+        } else {
+            // Se voltar para a fase 1, retorna à posição normal
+            if (this.capivara.getData('isSwimming')) {
+                this.capivara.y -= 40;
+                this.capivara.setData('isSwimming', false);
+
+                // Restaura o colisor do chão
+                this.groundCollider.y -= 30;
+                this.groundCollider.setSize(this.groundCollider.width, 50); // Altura original do chão
+            }
+        }
 
         // Controle da Capivara
         // <<<=== MODIFICADO: Verifica colisão com groundCollider
@@ -305,46 +370,60 @@ class GameScene extends Phaser.Scene {
         this.obstacleSpawnTimer = this.time.delayedCall(delay, this.spawnObstacle, [], this);
     }
 
-    spawnObstacle() {
-        if (this.isGameOver) return;
+spawnObstacle() {
+    if (this.isGameOver) return;
 
-        const gameWidth = this.sys.game.config.width;
-        const gameHeight = this.sys.game.config.height;
-        const groundImageHeight = 50; // <<<=== Use a mesma altura da imagem do chão definida em create
+    const gameWidth = this.sys.game.config.width;
+    const gameHeight = this.sys.game.config.height;
+    const groundImageHeight = 50;
 
-        const spawnX = gameWidth + 50;
+    if (this.phasePassed) {
+        // Fase dos jacarés
+        const crocodileHeight = 30;
+        const spawnY = gameHeight - groundImageHeight - (crocodileHeight / 2) + 30;
+
+        // Calcule a quantidade de jacarés visíveis
+        const minDistance = 120; // Distância mínima entre jacarés
+        const maxDistance = 200; // Distância máxima entre jacarés
+        let lastX = gameWidth;
+        let numCrocodiles = 1
+
+        for (let i = 0; i < numCrocodiles; i++) {
+            lastX += Phaser.Math.Between(minDistance, maxDistance);
+            const crocodile = this.obstacles.create(lastX, spawnY, 'crocodile_closed_mouth');
+            crocodile.play('crocodile_anim');
+            crocodile.body.setSize(crocodile.width * 0.4, crocodile.height * 0.7);
+            crocodile.body.setOffset((crocodile.width - crocodile.width * 0.8) / 2, (crocodile.height - crocodile.height * 0.7) / 2);
+            crocodile.setVelocityX(-this.gameSpeed);
+        }
+    } else {
+        // Fase das pedras (original)
         const obstacleHeight = 30;
-        const spawnY = gameHeight - groundImageHeight - (obstacleHeight / 2) + 5; // 5 = pequeno ajuste para parecer em cima do chão
-
-        const obstacle = this.obstacles.create(spawnX, spawnY, 'obstacle_rock');
+        const spawnY = gameHeight - groundImageHeight - (obstacleHeight / 2) + 5;
+        const obstacle = this.obstacles.create(gameWidth + 50, spawnY, 'obstacle_rock');
         const obsWidth = obstacle.width;
         const obsHeight = obstacle.height;
-
-        // Ex: Deixar um pouco mais estreito e baixo
         const obsBodyWidth = obsWidth * 0.8;
         const obsBodyHeight = obsHeight * 0.75;
         obstacle.body.setSize(obsBodyWidth, obsBodyHeight);
-
-        // Centralizar a hitbox menor
-        const obsOffsetX = (obsWidth - obsBodyWidth) / 2;
-        const obsOffsetY = (obsHeight - obsBodyHeight) / 2; // Centraliza verticalmente
-        obstacle.body.setOffset(obsOffsetX, obsOffsetY);
-
+        obstacle.body.setOffset((obsWidth - obsBodyWidth) / 2, (obsHeight - obsBodyHeight) / 2);
         obstacle.setVelocityX(-this.gameSpeed);
-
-        this.scheduleObstacleSpawn();
     }
+
+    this.scheduleObstacleSpawn();
+}
 
     scheduleDifficultyIncrease() {
         if (this.isGameOver) return;
         this.gameSpeedIncreaseTimer = this.time.delayedCall(1000, () => {
-            this.gameSpeed += 10;
+            this.gameSpeed += 5;
             this.scheduleDifficultyIncrease();
         }, [], this);
     }
 
     // --- Game Over ---
     gameOver(capivara, obstacle) {
+        this.phasePassed = false;
         if (this.isGameOver) return;
 
         console.log('Game Over!');
@@ -360,7 +439,7 @@ class GameScene extends Phaser.Scene {
         // Textos e Botão de Game Over (adicionado setScrollFactor(0))
         const gameWidth = this.sys.game.config.width;
         const gameHeight = this.sys.game.config.height;
-        this.add.text(gameWidth/2, gameHeight/2 - 30, 'GAME OVER', {
+        this.add.text(gameWidth/2, gameHeight/2 - 30, 'BATEU AS BOTAS', {
             fontSize: '48px', fill: '#ff0000', fontStyle: 'bold'
         }).setOrigin(0.5).setScrollFactor(0);
 
@@ -378,6 +457,13 @@ class GameScene extends Phaser.Scene {
         });
          restartButton.on('pointerover', () => restartButton.setBackgroundColor('#777'));
          restartButton.on('pointerout', () => restartButton.setBackgroundColor('#555'));
+
+         this.input.keyboard.once('keydown-SPACE', () => {
+        this.scene.restart();
+        });
+        this.input.keyboard.once('keydown-UP', () => {
+            this.scene.restart();
+        });
     }
 
     shutdown() {
