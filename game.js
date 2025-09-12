@@ -27,7 +27,7 @@ class StartScene extends Phaser.Scene {
         this.cameras.main.setBackgroundColor('#a0d4a1'); // Verde claro
 
         // Adiciona texto do título
-        this.add.text(400, 200 - 50, 'CapiRun', { // Usei valores fixos baseados no config
+        this.add.text(400, 200 - 50, 'CapiRun 2.0', { // Usei valores fixos baseados no config
             fontSize: '48px',
             fill: '#5c3e30', // Marrom
             fontStyle: 'bold'
