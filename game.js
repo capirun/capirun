@@ -68,6 +68,7 @@ class GameScene extends Phaser.Scene {
         this.backgroundMusic = null;
         this.pointerDownDetected = false;
         this.pointerUpDetected = false;
+        this.musicSwitched = false;
     }
 
     preload() {
@@ -75,8 +76,11 @@ class GameScene extends Phaser.Scene {
         this.load.image('ground', 'assets/placeholder_ground.png'); // <<<=== Precisamos saber a altura desta imagem
         this.load.image('capivara', 'assets/placeholder_capivara.png');
         this.load.image('obstacle_rock', 'assets/placeholder_rock.png');
-        this.load.audio('gameMusic', [
+        this.load.audio('gameMusic1', [
             'assets/trilha_sonora.ogg'
+        ]);
+        this.load.audio('gameMusic2', [
+            'assets/two_steps_from_hell.ogg'
         ]);
     }
 
@@ -175,7 +179,7 @@ class GameScene extends Phaser.Scene {
         this.scheduleDifficultyIncrease();
 
         if (!this.backgroundMusic || !this.backgroundMusic.isPlaying) {
-            this.backgroundMusic = this.sound.add('gameMusic', {
+            this.backgroundMusic = this.sound.add('gameMusic1', {
                 loop: true,  // Tocar em loop
                 volume: 0.4  // Volume (0 a 1) - ajuste conforme necessário
             });
@@ -224,6 +228,17 @@ class GameScene extends Phaser.Scene {
         // Atualiza Pontuação
         this.score = Math.floor((time - this.startTime) / 1000);
         this.scoreText.setText('Tempo: ' + this.score);
+
+        if (this.score > 25 && !this.musicSwitched) {
+                this.backgroundMusic.stop();
+                this.backgroundMusic = null;
+                this.backgroundMusic = this.sound.add('gameMusic2', {
+                    loop: true,
+                    volume: 0.4
+                });
+                this.backgroundMusic.play();
+                this.musicSwitched = true; // Marca que já trocou
+            }
 
         // Controle da Capivara
         // <<<=== MODIFICADO: Verifica colisão com groundCollider
