@@ -73,7 +73,8 @@ class GameScene extends Phaser.Scene {
 
     preload() {
         this.load.image('sky', 'assets/placeholder_sky.png');
-        this.load.image('ground', 'assets/placeholder_ground.png'); // <<<=== Precisamos saber a altura desta imagem
+        this.load.image('ground', 'assets/placeholder_ground.png');
+        this.load.image('water', 'assets/water.png');
         this.load.image('capi_moving_1', 'assets/capi_moving_1.png');
         this.load.image('capi_moving_2', 'assets/capi_moving_2.png');
         this.load.image('obstacle_rock', 'assets/placeholder_rock.png');
@@ -242,7 +243,7 @@ class GameScene extends Phaser.Scene {
         this.score = Math.floor((time - this.startTime) / 1000);
         this.scoreText.setText('Tempo: ' + this.score);
 
-        if (this.score > 25 && !this.phasePassed) {
+        if (this.score > 5 && !this.phasePassed) {
                 this.backgroundMusic.stop();
                 this.backgroundMusic = null;
                 this.backgroundMusic = this.sound.add('gameMusic2', {
@@ -250,6 +251,7 @@ class GameScene extends Phaser.Scene {
                     volume: 0.4
                 });
                 this.backgroundMusic.play();
+                this.groundVisual.setTexture('water');
                 this.phasePassed = true; // Marca que já trocou
             }
 
