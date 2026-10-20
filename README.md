@@ -1,5 +1,7 @@
 # CapiRun 🦫
 
+Corre capivara! **Jogue em <https://capirun.github.io/capirun/>**
+
 Endless runner de capivara feito com [Phaser 3](https://phaser.io) (3.88). Corra pelo campo, atravesse o rio
 desviando de jacarés e sobreviva à noite no Pantanal.
 
